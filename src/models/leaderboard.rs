@@ -53,7 +53,6 @@ pub struct LeetCodeStatsWithName {
 
 #[derive(FromRow, SimpleObject)]
 pub struct CodeforcesStats {
-    pub id: i32,
     pub member_id: i32,
     pub codeforces_handle: String,
     pub codeforces_rating: i32,
@@ -63,7 +62,6 @@ pub struct CodeforcesStats {
 
 #[derive(FromRow, SimpleObject)]
 pub struct CodeforcesStatsWithName {
-    pub id: i32,
     pub member_id: i32,
     pub member_name: String,
     pub codeforces_handle: String,

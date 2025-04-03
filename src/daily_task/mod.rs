@@ -4,10 +4,18 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::time::sleep_until;
 use tracing::{debug, error, info};
+use async_graphql::Context;
+use crate::{
+    models::{
+        leaderboard::{CodeforcesStats, LeetCodeStats},
+        member::Member,
+    },
+    graphql::mutations::{
+      LeaderboardMutation,FetchCodeForces,FetchLeetCode,
+    },
+};
 
-use crate::models::member::Member;
-
-pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>) {
+pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>,ctx: &Context<'_>) {
     loop {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
         let naive_midnight =
@@ -30,14 +38,14 @@ pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>) {
             tokio::time::Duration::from_secs(duration_until_midnight.num_seconds() as u64);
 
         sleep_until(tokio::time::Instant::now() + sleep_duration).await;
-        execute_daily_task(pool.clone()).await;
+        execute_daily_task(pool.clone(),ctx).await;
     }
 }
 
 /// This function does a number of things, including:
 /// * Insert new attendance records everyday for [`presense`](https://www.github.com/amfoss/presense) to update them later in the day.
 /// * Update the AttendanceSummary table
-async fn execute_daily_task(pool: Arc<PgPool>) {
+async fn execute_daily_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
     // Members is queried outside of each function to avoid repetition
     let members = sqlx::query_as::<_, Member>("SELECT * FROM Member")
         .fetch_all(&*pool)
@@ -47,13 +55,78 @@ async fn execute_daily_task(pool: Arc<PgPool>) {
         Ok(members) => {
             update_attendance(&members, &pool).await;
             update_status_history(&members, &pool).await;
+            update_leaderboard_task(pool.clone(), ctx).await;
         }
         // TODO: Handle this
         Err(e) => error!("Failed to fetch members: {:?}", e),
     };
 }
 
-async fn update_attendance(members: &Vec<Member>, pool: &PgPool) {
+pub async fn update_leaderboard_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
+    let members: Result<Vec<Member>, sqlx::Error> =
+        sqlx::query_as::<_, Member>("SELECT id FROM Member")
+            .fetch_all(pool.as_ref())
+            .await;
+
+    match members {
+        Ok(members) => {
+            for member in members {
+                // Fetch LeetCode username
+                let leetcode_username = sqlx::query_as::<_, LeetCodeStats>(
+                    "SELECT leetcode_username FROM leetcode_stats WHERE member_id = $1",
+                )
+                .bind(member.member_id)
+                .fetch_optional(pool.as_ref())
+                .await;
+
+                if let Ok(Some(leetcode_stats)) = leetcode_username {
+                    let username = leetcode_stats.leetcode_username.clone();
+
+                    // Fetch and update LeetCode stats
+                    match FetchLeetCode::fetch_leetcode_stats(&FetchLeetCode,ctx, member.member_id, username).await {
+                        Ok(_) => println!("LeetCode stats updated for member ID: {}", member.member_id),
+                        Err(e) => eprintln!(
+                            "Failed to update LeetCode stats for member ID {}: {:?}", 
+                            member.member_id, e
+                        ),
+                    }
+                }
+
+                // Fetch Codeforces username
+                let codeforces_username = sqlx::query_as::<_, CodeforcesStats>(
+                    "SELECT codeforces_handle FROM codeforces_stats WHERE member_id = $1",
+                )
+                .bind(member.member_id)
+                .fetch_optional(pool.as_ref())
+                .await;
+
+                if let Ok(Some(codeforces_stats)) = codeforces_username {
+                    let username = codeforces_stats.codeforces_handle.clone();
+
+                    // Fetch and update Codeforces stats
+                    match FetchCodeForces::fetch_codeforces_stats(&FetchCodeForces, ctx,member.member_id, username).await {
+                        Ok(_) => println!("Codeforces stats updated for member ID: {}", member.member_id),
+                        Err(e) => eprintln!(
+                            "Failed to update Codeforces stats for member ID {}: {:?}", 
+                            member.member_id, e
+                        ),
+                    }
+                }
+
+                // Update leaderboard
+                match LeaderboardMutation.update_leaderboard(ctx).await {
+                    Ok(_) => println!("Leaderboard updated."),
+                    Err(e) => eprintln!("Failed to update leaderboard: {:?}", e),
+                }
+            }
+        }
+        Err(e) => eprintln!("Failed to fetch members: {:?}", e),
+    }
+}
+
+
+
+async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
     #[allow(deprecated)]
     let today = chrono::Utc::now()
         .with_timezone(&Kolkata)
