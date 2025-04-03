@@ -5,11 +5,11 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 #[derive(Default)]
-pub struct LeetCodeStats;
+pub struct FetchLeetCode;
 
 #[Object]
-impl LeetCodeStats {
-    async fn fetch_leetcode_stats(
+impl FetchLeetCode {
+    pub async fn fetch_leetcode_stats(
         &self,
         ctx: &Context<'_>,
         member_id: i32,

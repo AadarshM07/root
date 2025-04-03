@@ -5,11 +5,11 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 #[derive(Default)]
-pub struct CodeforcesStats;
+pub struct FetchCodeForces;
 
 #[Object]
-impl CodeforcesStats {
-    async fn fetch_codeforces_stats(
+impl FetchCodeForces {
+    pub async fn fetch_codeforces_stats(
         &self,
         ctx: &Context<'_>,  // Retrieve the database pool from context
         member_id: i32,

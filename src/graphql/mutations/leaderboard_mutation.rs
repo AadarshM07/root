@@ -8,7 +8,7 @@ pub struct LeadMutation;
 
 #[Object]
 impl LeadMutation {
-    async fn add_or_update_leetcode_username(
+    pub async fn add_or_update_leetcode_username(
         &self,
         ctx: &Context<'_>,
         member_id: i32,
