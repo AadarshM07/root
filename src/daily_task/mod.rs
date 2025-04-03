@@ -4,18 +4,16 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::time::sleep_until;
 use tracing::{debug, error, info};
-use async_graphql::Context;
+use crate::graphql::mutations::{fetch_and_update_codeforces_stats,fetch_and_update_leetcode,update_leaderboard_scores};
+
 use crate::{
     models::{
         leaderboard::{CodeforcesStats, LeetCodeStats},
         member::Member,
     },
-    graphql::mutations::{
-      LeaderboardMutation,FetchCodeForces,FetchLeetCode,
-    },
 };
 
-pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>,ctx: &Context<'_>) {
+pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>) {
     loop {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
         let naive_midnight =
@@ -38,14 +36,14 @@ pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>,ctx: &Context<'_>) {
             tokio::time::Duration::from_secs(duration_until_midnight.num_seconds() as u64);
 
         sleep_until(tokio::time::Instant::now() + sleep_duration).await;
-        execute_daily_task(pool.clone(),ctx).await;
+        execute_daily_task(pool.clone()).await;
     }
 }
 
 /// This function does a number of things, including:
 /// * Insert new attendance records everyday for [`presense`](https://www.github.com/amfoss/presense) to update them later in the day.
 /// * Update the AttendanceSummary table
-async fn execute_daily_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
+async fn execute_daily_task(pool: Arc<PgPool>) {
     // Members is queried outside of each function to avoid repetition
     let members = sqlx::query_as::<_, Member>("SELECT * FROM Member")
         .fetch_all(&*pool)
@@ -55,16 +53,23 @@ async fn execute_daily_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
         Ok(members) => {
             update_attendance(&members, &pool).await;
             update_status_history(&members, &pool).await;
-            update_leaderboard_task(pool.clone(), ctx).await;
+            update_leaderboard_task(pool.clone()).await;
         }
         // TODO: Handle this
         Err(e) => error!("Failed to fetch members: {:?}", e),
     };
 }
 
-pub async fn update_leaderboard_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
+pub async fn update_leaderboard_task(pool: Arc<PgPool>) {
+    #[allow(deprecated)]
+    let today = chrono::Utc::now()
+        .with_timezone(&Kolkata)
+        .date()
+        .naive_local();
+    debug!("Updating leaderboard on {}", today);
+
     let members: Result<Vec<Member>, sqlx::Error> =
-        sqlx::query_as::<_, Member>("SELECT id FROM Member")
+        sqlx::query_as::<_, Member>("SELECT * FROM Member")
             .fetch_all(pool.as_ref())
             .await;
 
@@ -83,7 +88,7 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
                     let username = leetcode_stats.leetcode_username.clone();
 
                     // Fetch and update LeetCode stats
-                    match FetchLeetCode::fetch_leetcode_stats(&FetchLeetCode,ctx, member.member_id, username).await {
+                    match fetch_and_update_leetcode(pool.clone(), member.member_id, &username).await {
                         Ok(_) => println!("LeetCode stats updated for member ID: {}", member.member_id),
                         Err(e) => eprintln!(
                             "Failed to update LeetCode stats for member ID {}: {:?}", 
@@ -104,7 +109,8 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
                     let username = codeforces_stats.codeforces_handle.clone();
 
                     // Fetch and update Codeforces stats
-                    match FetchCodeForces::fetch_codeforces_stats(&FetchCodeForces, ctx,member.member_id, username).await {
+                    match fetch_and_update_codeforces_stats(pool.clone(), member.member_id, &username).await
+                    {
                         Ok(_) => println!("Codeforces stats updated for member ID: {}", member.member_id),
                         Err(e) => eprintln!(
                             "Failed to update Codeforces stats for member ID {}: {:?}", 
@@ -114,7 +120,7 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>,ctx: &Context<'_>) {
                 }
 
                 // Update leaderboard
-                match LeaderboardMutation.update_leaderboard(ctx).await {
+                match update_leaderboard_scores(pool.clone()).await {
                     Ok(_) => println!("Leaderboard updated."),
                     Err(e) => eprintln!("Failed to update leaderboard: {:?}", e),
                 }

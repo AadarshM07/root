@@ -1,6 +1,6 @@
 -- Add migration script here
 
-CREATE TABLE leaderboard (
+CREATE TABLE IF NOT EXISTS leaderboard (
     id SERIAL PRIMARY KEY,
     member_id INT UNIQUE NOT NULL,
     leetcode_score INT,
@@ -10,7 +10,7 @@ CREATE TABLE leaderboard (
     FOREIGN KEY (member_id) REFERENCES member(member_id)
 );
 
-CREATE TABLE leetcode_stats (
+CREATE TABLE IF NOT EXISTS leetcode_stats (
     id SERIAL PRIMARY KEY,
     member_id INT NOT NULL,
     leetcode_username VARCHAR(255) NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE leetcode_stats (
     FOREIGN KEY (member_id) REFERENCES member(member_id)
 );
 
-CREATE TABLE codeforces_stats (
+CREATE TABLE IF NOT EXISTS codeforces_stats (
     id SERIAL PRIMARY KEY,
     member_id INT NOT NULL,
     codeforces_handle VARCHAR(255) NOT NULL,
