@@ -8,7 +8,7 @@ pub struct LeaderboardMutation;
 
 #[Object]
 impl LeaderboardMutation {
-    async fn update_leaderboard(&self, ctx: &Context<'_>) -> GqlResult<bool> {
+    pub async fn update_leaderboard(&self, ctx: &Context<'_>) -> GqlResult<bool> {
         let pool = ctx.data::<Arc<PgPool>>()
             .map_err(|_| async_graphql::Error::new("Failed to access the database pool"))?;
 
