@@ -2,10 +2,12 @@ use async_graphql::{Context, Object};
 use sqlx::PgPool;
 use std::sync::Arc;
 
-use crate::models::leaderboard::{CodeforcesStatsWithName, LeaderboardWithMember, LeetCodeStatsWithName};
+use crate::models::leaderboard::{
+    CodeforcesStatsWithName, LeaderboardWithMember, LeetCodeStatsWithName,
+};
 
 #[derive(Default)]
-pub struct  LeaderboardQueries;
+pub struct LeaderboardQueries;
 
 #[Object]
 impl LeaderboardQueries {
