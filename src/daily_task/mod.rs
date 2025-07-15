@@ -1,7 +1,7 @@
-use chrono::NaiveTime;
 use crate::graphql::mutations::{
     fetch_and_update_codeforces_stats, fetch_and_update_leetcode, update_leaderboard_scores,
 };
+use chrono::NaiveTime;
 use chrono_tz::Asia::Kolkata;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -133,15 +133,15 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>) {
                 // Update leaderboard
                 match update_leaderboard_scores(pool.clone()).await {
                     Ok(_) => println!("Leaderboard updated."),
-                    Err(e) => eprintln!("Failed to update leaderboard: {:?}", e),
+                    Err(e) => eprintln!("Failed to update leaderboard: {e:?}"),
                 }
             }
         }
-        Err(e) => eprintln!("Failed to fetch members: {:?}", e),
+        Err(e) => eprintln!("Failed to fetch members: {e:?}"),
     }
 }
 
-async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
+async fn update_attendance(members: &Vec<Member>, pool: &PgPool) {
     #[allow(deprecated)]
     let today = chrono::Utc::now()
         .with_timezone(&Kolkata)
