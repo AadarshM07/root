@@ -1,7 +1,7 @@
+use super::leaderboard_api::fetch_and_update_codeforces_stats;
 use async_graphql::{Context, Object, Result};
 use sqlx::PgPool;
 use std::sync::Arc;
-use super::leaderboard_api::fetch_and_update_codeforces_stats;
 
 #[derive(Default)]
 pub struct FetchCodeForces;

@@ -1,16 +1,16 @@
 use chrono::NaiveTime;
+use crate::graphql::mutations::{
+    fetch_and_update_codeforces_stats, fetch_and_update_leetcode, update_leaderboard_scores,
+};
 use chrono_tz::Asia::Kolkata;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::time::sleep_until;
 use tracing::{debug, error, info};
-use crate::graphql::mutations::{fetch_and_update_codeforces_stats,fetch_and_update_leetcode,update_leaderboard_scores};
 
-use crate::{
-    models::{
-        leaderboard::{CodeforcesStats, LeetCodeStats},
-        member::Member,
-    },
+use crate::models::{
+    leaderboard::{CodeforcesStats, LeetCodeStats},
+    member::Member,
 };
 
 pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>) {
@@ -88,10 +88,13 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>) {
                     let username = leetcode_stats.leetcode_username.clone();
 
                     // Fetch and update LeetCode stats
-                    match fetch_and_update_leetcode(pool.clone(), member.member_id, &username).await {
-                        Ok(_) => println!("LeetCode stats updated for member ID: {}", member.member_id),
+                    match fetch_and_update_leetcode(pool.clone(), member.member_id, &username).await
+                    {
+                        Ok(_) => {
+                            println!("LeetCode stats updated for member ID: {}", member.member_id)
+                        }
                         Err(e) => eprintln!(
-                            "Failed to update LeetCode stats for member ID {}: {:?}", 
+                            "Failed to update LeetCode stats for member ID {}: {:?}",
                             member.member_id, e
                         ),
                     }
@@ -109,11 +112,19 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>) {
                     let username = codeforces_stats.codeforces_handle.clone();
 
                     // Fetch and update Codeforces stats
-                    match fetch_and_update_codeforces_stats(pool.clone(), member.member_id, &username).await
+                    match fetch_and_update_codeforces_stats(
+                        pool.clone(),
+                        member.member_id,
+                        &username,
+                    )
+                    .await
                     {
-                        Ok(_) => println!("Codeforces stats updated for member ID: {}", member.member_id),
+                        Ok(_) => println!(
+                            "Codeforces stats updated for member ID: {}",
+                            member.member_id
+                        ),
                         Err(e) => eprintln!(
-                            "Failed to update Codeforces stats for member ID {}: {:?}", 
+                            "Failed to update Codeforces stats for member ID {}: {:?}",
                             member.member_id, e
                         ),
                     }
@@ -129,8 +140,6 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>) {
         Err(e) => eprintln!("Failed to fetch members: {:?}", e),
     }
 }
-
-
 
 async fn update_attendance(members: Vec<Member>, pool: &PgPool) {
     #[allow(deprecated)]

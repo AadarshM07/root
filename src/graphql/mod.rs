@@ -1,6 +1,11 @@
 use async_graphql::MergedObject;
-use mutations::{AttendanceMutations, MemberMutations, ProjectMutations, StreakMutations,FetchLeetCode,FetchCodeForces,LeaderboardMutation};
-use queries::{AttendanceQueries, MemberQueries, ProjectQueries, StreakQueries, LeaderboardQueries};
+use mutations::{
+    AttendanceMutations, FetchCodeForces, FetchLeetCode, LeaderboardMutation, MemberMutations,
+    ProjectMutations, StreakMutations,
+};
+use queries::{
+    AttendanceQueries, LeaderboardQueries, MemberQueries, ProjectQueries, StreakQueries,
+};
 
 pub mod mutations;
 pub mod queries;
@@ -23,5 +28,4 @@ pub struct Mutation(
     FetchLeetCode,
     FetchCodeForces,
     LeaderboardMutation,
-
 );

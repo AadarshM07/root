@@ -1,16 +1,15 @@
 use reqwest;
+use reqwest::Client;
 use serde_json::Value;
 use sqlx::PgPool;
-use std::sync::Arc;
 use std::collections::HashMap;
-use reqwest::Client;
-
+use std::sync::Arc;
 
 pub async fn fetch_and_update_codeforces_stats(
     pool: Arc<PgPool>,
     member_id: i32,
     username: &str,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>>{
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let url = format!("https://codeforces.com/api/user.rating?handle={}", username);
     let response = reqwest::get(&url).await?.text().await?;
     let data: Value = serde_json::from_str(&response)?;
@@ -87,7 +86,11 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
         .map(|row| {
             (
                 row.member_id,
-                (row.codeforces_rating, row.max_rating, row.contests_participated),
+                (
+                    row.codeforces_rating,
+                    row.max_rating,
+                    row.contests_participated,
+                ),
             )
         })
         .collect();
@@ -99,7 +102,8 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
             + (2 * row.contests_participated)
             + (100 - row.best_rank / 10).max(0);
 
-        let (codeforces_score, unified_score) = cf_lookup.get(&row.member_id)
+        let (codeforces_score, unified_score) = cf_lookup
+            .get(&row.member_id)
             .map(|(rating, max_rating, contests)| {
                 let cf_score = (rating / 10) + (max_rating / 20) + (5 * contests);
                 (cf_score, leetcode_score + cf_score)
@@ -123,18 +127,23 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
         .await;
 
         if let Err(e) = result {
-            eprintln!("Failed to update leaderboard for member ID {}: {:?}", row.member_id, e);
+            eprintln!(
+                "Failed to update leaderboard for member ID {}: {:?}",
+                row.member_id, e
+            );
         }
     }
 
     for row in &codeforces_stats {
-        if leetcode_stats.iter().any(|lc| lc.member_id == row.member_id) {
+        if leetcode_stats
+            .iter()
+            .any(|lc| lc.member_id == row.member_id)
+        {
             continue;
         }
 
-        let codeforces_score = (row.codeforces_rating / 10)
-            + (row.max_rating / 20)
-            + (5 * row.contests_participated);
+        let codeforces_score =
+            (row.codeforces_rating / 10) + (row.max_rating / 20) + (5 * row.contests_participated);
 
         let unified_score = codeforces_score;
 
@@ -155,14 +164,15 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
         .await;
 
         if let Err(e) = result {
-            eprintln!("Failed to update leaderboard for Codeforces-only member ID {}: {:?}", row.member_id, e);
+            eprintln!(
+                "Failed to update leaderboard for Codeforces-only member ID {}: {:?}",
+                row.member_id, e
+            );
         }
     }
 
     Ok(())
 }
-
-
 
 pub async fn fetch_and_update_leetcode(
     pool: Arc<PgPool>,
