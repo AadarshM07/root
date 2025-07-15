@@ -20,9 +20,7 @@ impl LeaderboardMutation {
         )
         .fetch_all(pool.as_ref())
         .await
-        .map_err(|e| {
-            async_graphql::Error::new(format!("Failed to fetch LeetCode stats: {:?}", e))
-        })?;
+        .map_err(|e| async_graphql::Error::new(format!("Failed to fetch LeetCode stats: {e:?}")))?;
 
         let codeforces_stats = sqlx::query!(
             "SELECT member_id, codeforces_rating, max_rating, contests_participated
@@ -31,7 +29,7 @@ impl LeaderboardMutation {
         .fetch_all(pool.as_ref())
         .await
         .map_err(|e| {
-            async_graphql::Error::new(format!("Failed to fetch Codeforces stats: {:?}", e))
+            async_graphql::Error::new(format!("Failed to fetch Codeforces stats: {e:?}"))
         })?;
 
         let cf_lookup: HashMap<i32, (i32, i32, i32)> = codeforces_stats
@@ -72,8 +70,7 @@ impl LeaderboardMutation {
                      unified_score = EXCLUDED.unified_score,
                      last_updated = NOW()",
                 row.member_id,
-                leetcode_score,
-                codeforces_score,
+                0,codeforces_score,
                 unified_score
             )
             .execute(pool.as_ref())
@@ -110,7 +107,7 @@ impl LeaderboardMutation {
                      unified_score = EXCLUDED.unified_score,
                      last_updated = NOW()",
                 row.member_id,
-                codeforces_score,
+                0,codeforces_score,
                 unified_score
             )
             .execute(pool.as_ref())

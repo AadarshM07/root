@@ -10,7 +10,7 @@ pub async fn fetch_and_update_codeforces_stats(
     member_id: i32,
     username: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let url = format!("https://codeforces.com/api/user.rating?handle={}", username);
+    let url = format!("https://codeforces.com/api/user.rating?handle={username}");
     let response = reqwest::get(&url).await?.text().await?;
     let data: Value = serde_json::from_str(&response)?;
 
@@ -51,18 +51,17 @@ pub async fn fetch_and_update_codeforces_stats(
             .await;
 
             match update_result {
-                Ok(_) => println!("Codeforces stats updated for member ID: {}", member_id),
-                Err(e) => eprintln!(
-                    "Failed to update Codeforces stats for member ID {}: {:?}",
-                    member_id, e
-                ),
+                Ok(_) => println!("Codeforces stats updated for member ID: {member_id}"),
+                Err(e) => {
+                    eprintln!("Failed to update Codeforces stats for member ID {member_id}: {e:?}")
+                }
             }
 
             return Ok(());
         }
     }
 
-    Err(format!("Failed to fetch stats for Codeforces handle: {}", username).into())
+    Err(format!("Failed to fetch stats for Codeforces handle: {username}").into())
 }
 
 pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Error> {
