@@ -9,6 +9,7 @@ use queries::{
 
 pub mod mutations;
 pub mod queries;
+pub mod api;
 
 #[derive(MergedObject, Default)]
 pub struct Query(

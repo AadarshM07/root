@@ -1,4 +1,4 @@
-use crate::graphql::mutations::{
+use crate::graphql::api::{
     fetch_and_update_codeforces_stats, fetch_and_update_leetcode, update_leaderboard_scores,
 };
 use chrono::NaiveTime;

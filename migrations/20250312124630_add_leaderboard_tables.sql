@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS leaderboard (
 
 CREATE TABLE IF NOT EXISTS leetcode_stats (
     id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL,
+    member_id INT UNIQUE NOT NULL,
     leetcode_username VARCHAR(255) NOT NULL,
     problems_solved INT NOT NULL,
     easy_solved INT NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS leetcode_stats (
 
 CREATE TABLE IF NOT EXISTS codeforces_stats (
     id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL,
+    member_id INT UNIQUE NOT NULL,
     codeforces_handle VARCHAR(255) NOT NULL,
     codeforces_rating INT NOT NULL,
     max_rating INT NOT NULL,
@@ -34,5 +34,3 @@ CREATE TABLE IF NOT EXISTS codeforces_stats (
     FOREIGN KEY (member_id) REFERENCES member(member_id)
 );
 
-ALTER TABLE leetcode_stats ADD CONSTRAINT leetcode_stats_member_id_key UNIQUE (member_id);
-ALTER TABLE codeforces_stats ADD CONSTRAINT codeforces_stats_member_id_key UNIQUE (member_id);
