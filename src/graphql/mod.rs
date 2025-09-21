@@ -1,7 +1,7 @@
 use async_graphql::MergedObject;
 use mutations::{
-    AttendanceMutations, FetchCodeForces, FetchLeetCode, LeaderboardMutation, MemberMutations,
-    ProjectMutations, StreakMutations,
+    AttendanceMutations, FetchCodeForces, FetchLeetCode, MemberMutations, ProjectMutations,
+    StreakMutations,
 };
 use queries::{
     AttendanceQueries, LeaderboardQueries, MemberQueries, ProjectQueries, StreakQueries,
@@ -27,5 +27,4 @@ pub struct Mutation(
     ProjectMutations,
     FetchLeetCode,
     FetchCodeForces,
-    LeaderboardMutation,
 );

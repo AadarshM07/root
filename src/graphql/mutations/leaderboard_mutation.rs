@@ -1,7 +1,7 @@
 use async_graphql::{Context, Object};
 use sqlx::PgPool;
 use std::sync::Arc;
-
+use tracing::{debug, error};
 use crate::db::leaderboard::{CodeforcesStats, LeetCodeStats};
 
 pub struct LeadMutation;
@@ -45,7 +45,7 @@ impl LeadMutation {
             VALUES ($1, $2, 0, 0, 0)
             ON CONFLICT (member_id) DO UPDATE
             SET codeforces_handle = EXCLUDED.codeforces_handle
-            RETURNING *
+            RETURNING *  
             ",
         )
         .bind(member_id)

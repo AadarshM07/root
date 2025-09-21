@@ -4,6 +4,7 @@ use serde_json::Value;
 use sqlx::PgPool;
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::{debug, error};
 
 pub async fn fetch_and_update_codeforces_stats(
     pool: Arc<PgPool>,
@@ -51,9 +52,9 @@ pub async fn fetch_and_update_codeforces_stats(
             .await;
 
             match update_result {
-                Ok(_) => println!("Codeforces stats updated for member ID: {member_id}"),
+                Ok(_) => debug!("Codeforces stats updated for member ID: {member_id}"),
                 Err(e) => {
-                    eprintln!("Failed to update Codeforces stats for member ID {member_id}: {e:?}")
+                    error!("Failed to update Codeforces stats for member ID {member_id}: {e:?}")
                 }
             }
 
@@ -66,7 +67,7 @@ pub async fn fetch_and_update_codeforces_stats(
 
 pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Error> {
     let leetcode_stats = sqlx::query!(
-        "SELECT member_id, problems_solved, easy_solved, medium_solved, hard_solved, 
+        "SELECT member_id, problems_solved, easy_solved, medium_solved, hard_solved,
                 contests_participated, best_rank
          FROM leetcode_stats"
     )
@@ -95,19 +96,41 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
         .collect();
 
     for row in &leetcode_stats {
-        let leetcode_score = (5 * row.easy_solved)
-            + (10 * row.medium_solved)
-            + (20 * row.hard_solved)
-            + (2 * row.contests_participated)
-            + (100 - row.best_rank / 10).max(0);
+        let easy = row.easy_solved.max(0);
+        let medium = row.medium_solved.max(0);
+        let hard = row.hard_solved.max(0);
+        let contests = row.contests_participated.max(0);
+        let best_rank = row.best_rank.max(0);
+
+        //  LeetCode scoring
+        let leetcode_score = (easy * 2) + (medium * 5) + (hard * 10);
+        let contest_performance = if best_rank > 0 {
+            (1000.0 / (best_rank as f64).sqrt()).round() as i32
+        } else {
+            0
+        };
+        let total_leetcode_score = leetcode_score + contest_performance + (contests * 3);
 
         let (codeforces_score, unified_score) = cf_lookup
             .get(&row.member_id)
             .map(|(rating, max_rating, contests)| {
-                let cf_score = (rating / 10) + (max_rating / 20) + (5 * contests);
-                (cf_score, leetcode_score + cf_score)
+                let rating_val = rating.max(&0);
+                let max_rating_val = max_rating.max(&0);
+                let contests_val = contests.max(&0);
+
+                //  Codeforces scoring
+                let rating_points = (*rating_val as f64 * 0.8).round() as i32;
+                let peak_bonus = (max_rating_val - rating_val).max(0) / 2;
+                let codeforces_score = rating_points + peak_bonus + (contests_val * 8);
+
+                //  Unified scoring (normalized addition)
+                let normalized_lc = total_leetcode_score as f64 / 5.0;
+                let normalized_cf = codeforces_score as f64 / 3.0;
+                let unified_score = (normalized_lc + normalized_cf).round() as i32;
+
+                (codeforces_score, unified_score)
             })
-            .unwrap_or((0, leetcode_score));
+            .unwrap_or((0, total_leetcode_score));
 
         let result = sqlx::query!(
             "INSERT INTO leaderboard (member_id, leetcode_score, codeforces_score, unified_score, last_updated)
@@ -118,7 +141,7 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
                  unified_score = EXCLUDED.unified_score,
                  last_updated = NOW()",
             row.member_id,
-            leetcode_score,
+            total_leetcode_score,
             codeforces_score,
             unified_score
         )
@@ -126,7 +149,7 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
         .await;
 
         if let Err(e) = result {
-            eprintln!(
+            debug!(
                 "Failed to update leaderboard for member ID {}: {:?}",
                 row.member_id, e
             );
@@ -141,10 +164,17 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
             continue;
         }
 
-        let codeforces_score =
-            (row.codeforces_rating / 10) + (row.max_rating / 20) + (5 * row.contests_participated);
+        //  Codeforces-only scoring
+        let rating_val = row.codeforces_rating.max(0);
+        let max_rating_val = row.max_rating.max(0);
+        let contests_val = row.contests_participated.max(0);
 
-        let unified_score = codeforces_score;
+        let rating_points = (rating_val as f64 * 0.8).round() as i32;
+        let peak_bonus = (max_rating_val - rating_val).max(0) / 2;
+        let codeforces_score = rating_points + peak_bonus + (contests_val * 8);
+
+        let normalized_cf = codeforces_score as f64 / 3.0;
+        let unified_score = normalized_cf.round() as i32;
 
         let result = sqlx::query!(
             "INSERT INTO leaderboard (member_id, leetcode_score, codeforces_score, unified_score, last_updated)
@@ -163,7 +193,7 @@ pub async fn update_leaderboard_scores(pool: Arc<PgPool>) -> Result<(), sqlx::Er
         .await;
 
         if let Err(e) = result {
-            eprintln!(
+            error!(
                 "Failed to update leaderboard for Codeforces-only member ID {}: {:?}",
                 row.member_id, e
             );

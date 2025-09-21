@@ -17,7 +17,7 @@ pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>) {
     loop {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
         let naive_midnight =
-            NaiveTime::from_hms_opt(00, 30, 00).expect("Hardcoded time must be valid");
+            NaiveTime::from_hms_opt(20, 22, 00).expect("Hardcoded time must be valid");
         let today_midnight = now
             .with_time(naive_midnight)
             .single()
@@ -75,69 +75,43 @@ pub async fn update_leaderboard_task(pool: Arc<PgPool>) {
 
     match members {
         Ok(members) => {
-            for member in members {
-                // Fetch LeetCode username
-                let leetcode_username = sqlx::query_as::<_, LeetCodeStats>(
-                    "SELECT leetcode_username FROM leetcode_stats WHERE member_id = $1",
+            for member in &members {
+                // Update LeetCode stats
+                if let Ok(Some(leetcode_stats)) = sqlx::query_as::<_, LeetCodeStats>(
+                    "SELECT leetcode_username FROM leetcode_stats WHERE member_id = $1 AND leetcode_username IS NOT NULL AND leetcode_username != ''",
                 )
                 .bind(member.member_id)
                 .fetch_optional(pool.as_ref())
-                .await;
-
-                if let Ok(Some(leetcode_stats)) = leetcode_username {
+                .await {
                     let username = leetcode_stats.leetcode_username.clone();
 
-                    // Fetch and update LeetCode stats
-                    match fetch_and_update_leetcode(pool.clone(), member.member_id, &username).await
-                    {
-                        Ok(_) => {
-                            println!("LeetCode stats updated for member ID: {}", member.member_id)
-                        }
-                        Err(e) => eprintln!(
-                            "Failed to update LeetCode stats for member ID {}: {:?}",
-                            member.member_id, e
-                        ),
+                    match fetch_and_update_leetcode(pool.clone(), member.member_id, &username).await {
+                        Ok(_) => debug!("LeetCode stats updated for member ID: {}", member.member_id),
+                        Err(e) => error!("Failed to update LeetCode stats for member ID {}: {:?}", member.member_id, e),
                     }
                 }
 
-                // Fetch Codeforces username
-                let codeforces_username = sqlx::query_as::<_, CodeforcesStats>(
-                    "SELECT codeforces_handle FROM codeforces_stats WHERE member_id = $1",
+                if let Ok(Some(codeforces_stats)) = sqlx::query_as::<_, CodeforcesStats>(
+                    "SELECT codeforces_handle FROM codeforces_stats WHERE member_id = $1 AND codeforces_handle IS NOT NULL AND codeforces_handle != ''",
                 )
                 .bind(member.member_id)
                 .fetch_optional(pool.as_ref())
-                .await;
-
-                if let Ok(Some(codeforces_stats)) = codeforces_username {
+                .await {
                     let username = codeforces_stats.codeforces_handle.clone();
 
-                    // Fetch and update Codeforces stats
-                    match fetch_and_update_codeforces_stats(
-                        pool.clone(),
-                        member.member_id,
-                        &username,
-                    )
-                    .await
-                    {
-                        Ok(_) => println!(
-                            "Codeforces stats updated for member ID: {}",
-                            member.member_id
-                        ),
-                        Err(e) => eprintln!(
-                            "Failed to update Codeforces stats for member ID {}: {:?}",
-                            member.member_id, e
-                        ),
+                    match fetch_and_update_codeforces_stats(pool.clone(), member.member_id, &username).await {
+                        Ok(_) => debug!("Codeforces stats updated for member ID: {}", member.member_id),
+                        Err(e) => error!("Failed to update Codeforces stats for member ID {}: {:?}", member.member_id, e),
                     }
                 }
+            }
 
-                // Update leaderboard
-                match update_leaderboard_scores(pool.clone()).await {
-                    Ok(_) => println!("Leaderboard updated."),
-                    Err(e) => eprintln!("Failed to update leaderboard: {e:?}"),
-                }
+            match update_leaderboard_scores(pool.clone()).await {
+                Ok(_) => debug!("Leaderboard updated successfully."),
+                Err(e) => error!("Failed to update leaderboard: {e:?}"),
             }
         }
-        Err(e) => eprintln!("Failed to fetch members: {e:?}"),
+        Err(e) => error!("Failed to fetch members: {e:?}"),
     }
 }
 
@@ -192,7 +166,7 @@ async fn update_status_history(members: &Vec<Member>, pool: &PgPool) {
 
     for member in members {
         let status_update = sqlx::query(
-            "INSERT INTO StatusUpdateHistory (member_id, date, is_updated) 
+            "INSERT INTO StatusUpdateHistory (member_id, date, is_updated)
                      VALUES ($1, $2, $3)
                      ON CONFLICT (member_id, date) DO NOTHING",
         )
