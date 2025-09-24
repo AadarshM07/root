@@ -7,9 +7,9 @@ use queries::{
     AttendanceQueries, LeaderboardQueries, MemberQueries, ProjectQueries, StreakQueries,
 };
 
+pub mod api;
 pub mod mutations;
 pub mod queries;
-pub mod api;
 
 #[derive(MergedObject, Default)]
 pub struct Query(

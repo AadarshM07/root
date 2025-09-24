@@ -17,7 +17,7 @@ pub async fn run_daily_task_at_midnight(pool: Arc<PgPool>) {
     loop {
         let now = chrono::Utc::now().with_timezone(&Kolkata);
         let naive_midnight =
-            NaiveTime::from_hms_opt(20, 22, 00).expect("Hardcoded time must be valid");
+            NaiveTime::from_hms_opt(00, 30, 00).expect("Hardcoded time must be valid");
         let today_midnight = now
             .with_time(naive_midnight)
             .single()
